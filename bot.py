@@ -3,7 +3,6 @@ from discord.ext import commands, tasks
 import datetime
 import os
 import pytz
-import asyncio
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -14,12 +13,18 @@ C30_CHANNEL_ID = int(os.getenv("C30_CHANNEL_ID"))
 C60_CHANNEL_ID = int(os.getenv("C60_CHANNEL_ID"))
 C80_CHANNEL_ID = int(os.getenv("C80_CHANNEL_ID"))
 
+CANALES = {
+    "C30": C30_CHANNEL_ID,
+    "C60": C60_CHANNEL_ID,
+    "C80": C80_CHANNEL_ID
+}
+
 TZ_ESPANA = pytz.timezone("Europe/Madrid")
 TZ_VENEZUELA = pytz.timezone("America/Caracas")
 TZ_COLOMBIA = pytz.timezone("America/Bogota")
 
 TEAMS = ["RATAS", "PRINCESOS", "LESBIANO", "NOSLEGENDS"]
-inscritos = {}
+inscritos = {c: {team: [] for team in TEAMS} for c in CANALES.keys()}
 mensaje_ids = {}
 
 def reset_inscritos(canal):
@@ -44,7 +49,7 @@ async def crear_embed(canal, nombre_canal):
 
     total = 0
     for team in TEAMS:
-        lista = inscritos[canal][team]
+        lista = inscritos[nombre_canal][team]
         total += len(lista)
         texto = "\n".join([f"<@{u}>" for u in lista]) if lista else "-"
         embed.add_field(name=f"TEAM {team} ({nombre_canal}) - (ch{TEAMS.index(team)+2}) ({len(lista)}/6)", value=texto, inline=False)
@@ -57,42 +62,34 @@ async def crear_embed(canal, nombre_canal):
         view.add_item(discord.ui.Button(label=f"TEAM {team}", style=style, custom_id=f"{nombre_canal}_{team}"))
     return embed, view
 
-async def publicar(canal_id, nombre_canal):
+async def publicar(nombre_canal):
+    canal_id = CANALES[nombre_canal]
     channel = client.get_channel(canal_id)
     if not channel:
-        print(f"ERROR: NO ENCUENTRO CANAL {nombre_canal}", flush=True)
+        print(f"ERROR: NO ENCUENTRO CANAL {nombre_canal} ID: {canal_id}", flush=True)
         return
     reset_inscritos(nombre_canal)
     embed, view = await crear_embed(canal_id, nombre_canal)
     msg = await channel.send(content="@everyone", embed=embed, view=view)
     mensaje_ids[nombre_canal] = msg.id
-    print(f"PUBLICADO {nombre_canal} A LAS {datetime.datetime.now(TZ_ESPANA).strftime('%H:%M')}", flush=True)
+    print(f"PUBLICADO {nombre_canal}", flush=True)
 
 @client.event
 async def on_ready():
     print(f'{client.user} CONECTADO', flush=True)
 
-    # 1. PUBLICAR YA LA DE LAS 18 QUE SE PERDIO
-    print("PUBLICANDO RECUPERACION DE LAS 18:00...", flush=True)
-    await publicar(C30_CHANNEL_ID, "C30")
-    await publicar(C60_CHANNEL_ID, "C60")
-    await publicar(C80_CHANNEL_ID, "C80")
+    # PUBLICAR YA LA DE LAS 18
+    for c in CANALES.keys():
+        await publicar(c)
 
-    # 2. INICIAR EL RELOJ PARA LAS SIGUIENTES
     reloj.start()
 
 @tasks.loop(minutes=1)
 async def reloj():
-    await client.wait_until_ready()
     now_es = datetime.datetime.now(TZ_ESPANA)
-    hora = now_es.hour
-    minuto = now_es.minute
-
-    # PUBLICAR NORMAL CADA 2 HORAS EN PUNTO: 20:00, 22:00, 00:00...
-    if minuto == 0 and hora % 2 == 0:
-        await publicar(C30_CHANNEL_ID, "C30")
-        await publicar(C60_CHANNEL_ID, "C60")
-        await publicar(C80_CHANNEL_ID, "C80")
+    if now_es.minute == 0 and now_es.hour % 2 == 0:
+        for c in CANALES.keys():
+            await publicar(c)
 
 @client.event
 async def on_interaction(interaction):
@@ -110,9 +107,8 @@ async def on_interaction(interaction):
         else:
             await interaction.response.send_message(f"TEAM {team} LLENO", ephemeral=True)
 
-        channel_id = globals()[f"{canal}_CHANNEL_ID"]
-        channel = client.get_channel(channel_id)
-        embed, view = await crear_embed(channel_id, canal)
+        channel = client.get_channel(CANALES[canal])
+        embed, view = await crear_embed(CANALES[canal], canal)
         await (await channel.fetch_message(mensaje_ids[canal])).edit(embed=embed, view=view)
 
 client.run(TOKEN)
