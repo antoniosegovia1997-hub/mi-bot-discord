@@ -86,15 +86,17 @@ async def reloj_lol():
     now = datetime.now(TIMEZONE)
     canal = client.get_channel(CANAL_AVISO_ID)
     if not canal: return
-
-    # AVISO CADA 2 HORAS EN PUNTO 24/7
-if now.minute == 0 and now.hour % 2 == 0 and not mensaje_lol:
+# AVISO CADA 2 HORAS EN PUNTO 24/7
+async def enviar_aviso():
+    global mensaje_lol, inscritos, apuntes_abiertos
     inscritos = {1: [], 2: [], 3: []}
     apuntes_abiertos = True
     embed = discord.Embed(title="⚔️ LOL 60 - MAPA DE LEVEO ⚔️", description="Cargando...", color=0xff5500)
     mensaje_lol = await canal.send("@everyone ⚔️ **ABREN APUNTES PARA EL LOL** ⚔️", embed=embed, view=BotonesLOL())
     await actualizar_embed()
 
+if now.minute == 0 and now.hour % 2 == 0 and not mensaje_lol:
+    await enviar_aviso()
     # CIERRA 1 HORA DESPUES
 if now.minute == 0 and (now.hour - 1) % 2 == 0 and apuntes_abiertos:
         apuntes_abiertos = False
