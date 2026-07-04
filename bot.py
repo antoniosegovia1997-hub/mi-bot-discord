@@ -42,14 +42,14 @@ class BotonesLOL(View):
 @tasks.loop(minutes=1)
 async def reloj_lol():
     now_es = datetime.datetime.now(TZ_ESPANA)
-    # Publica cada 2 horas a las 17 min: 00:17, 02:17, 04:17...
-    if now_es.minute == 17 and now_es.hour % 2 == 0:
+    # Publica cada hora par en punto: 00:00, 02:00, 04:00...
+    if now_es.minute == 0 and now_es.hour % 2 == 0:
         print(f"Publicando automaticamente a las {now_es.strftime('%H:%M')} ES")
         await publicar_lol(now_es.astimezone(datetime.timezone.utc))
 
 @tasks.loop(hours=1)
 async def keep_alive():
-    print("Bot vivo") # Esto evita que Railway lo mate
+    print("Bot vivo")
 
 async def publicar_lol(now_utc):
     global inscritos
@@ -66,22 +66,13 @@ async def publicar_lol(now_utc):
                 mensajes_lol[canal_id] = msg
 
 def crear_embed(now_utc, nombre_canal):
-    # TOMAMOS HORA ESPAÑA Y LA REDONDEAMOS A LA HORA PAR
-    hora_actual_es = now_utc.astimezone(TZ_ESPANA)
+    # LA HORA DEL EVENTO ES LA HORA ACTUAL
+    hora_evento_es = now_utc.astimezone(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
     
-    # Si son las 12:17, la hora del evento es 12:00
-    # Si son las 13:17, la hora del evento es 14:00
-    hora_evento_es = hora_actual_es.replace(minute=0, second=0, microsecond=0)
-    if hora_actual_es.hour % 2!= 0:
-        hora_evento_es = hora_evento_es + datetime.timedelta(hours=1)
-
     # El evento dura 2 horas
     hora_fin_es = hora_evento_es + datetime.timedelta(hours=2)
 
-    # Convertir a UTC y otros países
-    hora_inicio_utc = hora_evento_es.astimezone(datetime.timezone.utc)
-    hora_fin_utc = hora_fin_es.astimezone(datetime.timezone.utc)
-    
+    # Convertir a otros países
     hora_inicio_ve = hora_evento_es.astimezone(TZ_VENEZUELA)
     hora_fin_ve = hora_fin_es.astimezone(TZ_VENEZUELA)
 
@@ -98,14 +89,7 @@ def crear_embed(now_utc, nombre_canal):
     desc += "**Descripción:**\n🔥 VER TIK TOKS NO TE VA A AYUDAR A SUBIR DE NIVEL UNETE!! 🔥\n"
 
     for i in range(1, 5):
-        menciones = []
-        for user_id in inscritos[i]:
-            user = client.get_user(user_id)
-            if user:
-                menciones.append(f"<@{user_id}>")
-            else:
-                menciones.append(f"Usuario {user_id}")
-
+        menciones = [f"<@{user_id}>" if client.get_user(user_id) else f"Usuario {user_id}" for user_id in inscritos[i]]
         if not menciones: menciones = ["-"]
         
         canal_voz = i + 1
@@ -129,6 +113,11 @@ async def on_ready():
     print(f'Bot conectado como {client.user}')
     reloj_lol.start()
     keep_alive.start()
+    # FORZAR PUBLICACIÓN AHORA A LAS 12:36 PARA PROBAR
+    now_es = datetime.datetime.now(TZ_ESPANA)
+    if now_es.hour == 12 and now_es.minute < 40:
+        print("Forzando publicación a las 12:36")
+        await publicar_lol(datetime.datetime.now(datetime.timezone.utc))
 
 @client.event
 async def on_message(message):
