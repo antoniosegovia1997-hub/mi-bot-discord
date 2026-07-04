@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 import datetime
 import os
 import pytz
+import asyncio
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -20,7 +21,6 @@ TZ_COLOMBIA = pytz.timezone("America/Bogota")
 TEAMS = ["RATAS", "PRINCESOS", "LESBIANO", "NOSLEGENDS"]
 inscritos = {}
 mensaje_ids = {}
-ya_recupero_18 = False
 
 def reset_inscritos(canal):
     inscritos[canal] = {team: [] for team in TEAMS}
@@ -47,44 +47,48 @@ async def crear_embed(canal, nombre_canal):
         lista = inscritos[canal][team]
         total += len(lista)
         texto = "\n".join([f"<@{u}>" for u in lista]) if lista else "-"
-        embed.add_field(name=f"TEAM {team.upper()} ({nombre_canal}) - (ch{TEAMS.index(team)+2}) ({len(lista)}/6)", value=texto, inline=False)
+        embed.add_field(name=f"TEAM {team} ({nombre_canal}) - (ch{TEAMS.index(team)+2}) ({len(lista)}/6)", value=texto, inline=False)
 
     embed.add_field(name=f"Total Inscritos: {total}/24", value="", inline=False)
 
     view = discord.ui.View(timeout=None)
     for team in TEAMS:
-        view.add_item(discord.ui.Button(label=f"TEAM {team}", style=discord.ButtonStyle.red if team=="RATAS" else discord.ButtonStyle.blurple if team=="PRINCESOS" else discord.ButtonStyle.green if team=="LESBIANO" else discord.ButtonStyle.grey, custom_id=f"{canal}_{team}"))
+        style = discord.ButtonStyle.red if team=="RATAS" else discord.ButtonStyle.blurple if team=="PRINCESOS" else discord.ButtonStyle.green if team=="LESBIANO" else discord.ButtonStyle.grey
+        view.add_item(discord.ui.Button(label=f"TEAM {team}", style=style, custom_id=f"{nombre_canal}_{team}"))
     return embed, view
 
 async def publicar(canal_id, nombre_canal):
     channel = client.get_channel(canal_id)
-    if not channel: return
+    if not channel:
+        print(f"ERROR: NO ENCUENTRO CANAL {nombre_canal}", flush=True)
+        return
     reset_inscritos(nombre_canal)
-    embed, view = await crear_embed(nombre_canal, nombre_canal)
+    embed, view = await crear_embed(canal_id, nombre_canal)
     msg = await channel.send(content="@everyone", embed=embed, view=view)
     mensaje_ids[nombre_canal] = msg.id
-    print(f"PUBLICADO {nombre_canal}", flush=True)
+    print(f"PUBLICADO {nombre_canal} A LAS {datetime.datetime.now(TZ_ESPANA).strftime('%H:%M')}", flush=True)
 
 @client.event
 async def on_ready():
     print(f'{client.user} CONECTADO', flush=True)
+
+    # 1. PUBLICAR YA LA DE LAS 18 QUE SE PERDIO
+    print("PUBLICANDO RECUPERACION DE LAS 18:00...", flush=True)
+    await publicar(C30_CHANNEL_ID, "C30")
+    await publicar(C60_CHANNEL_ID, "C60")
+    await publicar(C80_CHANNEL_ID, "C80")
+
+    # 2. INICIAR EL RELOJ PARA LAS SIGUIENTES
     reloj.start()
 
 @tasks.loop(minutes=1)
 async def reloj():
-    global ya_recupero_18
+    await client.wait_until_ready()
     now_es = datetime.datetime.now(TZ_ESPANA)
     hora = now_es.hour
     minuto = now_es.minute
 
-    # 1. RECUPERAR LA DE 18:00 SOLO 1 VEZ
-    if hora == 18 and minuto == 35 and not ya_recupero_18:
-        await publicar(C30_CHANNEL_ID, "C30")
-        await publicar(C60_CHANNEL_ID, "C60")
-        await publicar(C80_CHANNEL_ID, "C80")
-        ya_recupero_18 = True
-
-    # 2. PUBLICAR NORMAL CADA 2 HORAS EN PUNTO
+    # PUBLICAR NORMAL CADA 2 HORAS EN PUNTO: 20:00, 22:00, 00:00...
     if minuto == 0 and hora % 2 == 0:
         await publicar(C30_CHANNEL_ID, "C30")
         await publicar(C60_CHANNEL_ID, "C60")
@@ -97,7 +101,8 @@ async def on_interaction(interaction):
         user_id = interaction.user.id
 
         for t in TEAMS:
-            if user_id in inscritos[canal][t]: inscritos[canal][t].remove(user_id)
+            if user_id in inscritos[canal][t]:
+                inscritos[canal][t].remove(user_id)
 
         if len(inscritos[canal][team]) < 6:
             inscritos[canal][team].append(user_id)
@@ -105,8 +110,9 @@ async def on_interaction(interaction):
         else:
             await interaction.response.send_message(f"TEAM {team} LLENO", ephemeral=True)
 
-        channel = client.get_channel(globals()[f"{canal}_CHANNEL_ID"])
-        embed, view = await crear_embed(canal, canal)
+        channel_id = globals()[f"{canal}_CHANNEL_ID"]
+        channel = client.get_channel(channel_id)
+        embed, view = await crear_embed(channel_id, canal)
         await (await channel.fetch_message(mensaje_ids[canal])).edit(embed=embed, view=view)
 
 client.run(TOKEN)
