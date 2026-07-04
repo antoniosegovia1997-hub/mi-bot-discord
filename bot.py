@@ -21,7 +21,7 @@ inscritos = {1: [], 2: [], 3: [], 4: []}
 
 NOMBRES_TEAM = {
     1: "TEAM RATAS",
-    2: "TEAM PRINCESOS", 
+    2: "TEAM PRINCESOS",
     3: "TEAM LESBIANO",
     4: "TEAM NOSLEGENDS"
 }
@@ -41,9 +41,11 @@ class BotonesLOL(View):
 
 @tasks.loop(minutes=1)
 async def reloj_lol():
-    now_utc = datetime.datetime.now(datetime.timezone.utc)
-    if now_utc.minute == 0 and now_utc.hour % 2 == 0:
-        await publicar_lol(now_utc)
+    now_es = datetime.datetime.now(TZ_ESPANA)
+    # Publica cada 2 horas a los 10 min: 00:10, 02:10, 04:10...
+    if now_es.minute == 10 and now_es.hour % 2 == 0:
+        print(f"Publicando automaticamente a las {now_es.strftime('%H:%M')} ES")
+        await publicar_lol(now_es.astimezone(datetime.timezone.utc))
 
 async def publicar_lol(now_utc):
     global inscritos
@@ -60,31 +62,29 @@ async def publicar_lol(now_utc):
                 mensajes_lol[canal_id] = msg
 
 def crear_embed(now_utc, nombre_canal):
-    # CALCULO HORA AUTOMATICA EN UTC
-    hora_actual_par = now_utc.replace(minute=0, second=0, microsecond=0)
-    if hora_actual_par.hour % 2!= 0:
-        hora_actual_par = hora_actual_par + datetime.timedelta(hours=1)
+    # Ahora calcula desde la hora actual + 1h para que cuadre con :10
+    hora_actual = now_utc.astimezone(TZ_ESPANA)
+    hora_redondeada = hora_actual.replace(minute=0, second=0, microsecond=0)
 
-    hora_inicio_utc = hora_actual_par + datetime.timedelta(hours=1)
-    hora_fin_utc = hora_actual_par + datetime.timedelta(hours=2)
+    hora_inicio_es = hora_redondeada + datetime.timedelta(hours=1, minutes=10)
+    hora_fin_es = hora_inicio_es + datetime.timedelta(hours=2)
 
-    # CONVERTIR A CADA PAIS
-    hora_inicio_es = hora_inicio_utc.astimezone(TZ_ESPANA)
-    hora_fin_es = hora_fin_utc.astimezone(TZ_ESPANA)
-    
-    hora_inicio_ve = hora_inicio_utc.astimezone(TZ_VENEZUELA)
-    hora_fin_ve = hora_fin_utc.astimezone(TZ_VENEZUELA)
+    hora_inicio_utc = hora_inicio_es.astimezone(datetime.timezone.utc)
+    hora_fin_utc = hora_fin_es.astimezone(datetime.timezone.utc)
 
-    hora_inicio_co = hora_inicio_utc.astimezone(TZ_COLOMBIA)
-    hora_fin_co = hora_fin_utc.astimezone(TZ_COLOMBIA)
+    hora_inicio_ve = hora_inicio_es.astimezone(TZ_VENEZUELA)
+    hora_fin_ve = hora_fin_es.astimezone(TZ_VENEZUELA)
 
-    fecha = hora_inicio_utc.strftime("%d/%m/%y")
+    hora_inicio_co = hora_inicio_es.astimezone(TZ_COLOMBIA)
+    hora_fin_co = hora_fin_es.astimezone(TZ_COLOMBIA)
+
+    fecha = hora_inicio_es.strftime("%d/%m/%y")
 
     desc = f"**Info del Evento:**\n📅 {fecha}\n\n"
     desc += f"🇪🇸 **ESPAÑA:** {hora_inicio_es.strftime('%H:%M')} - {hora_fin_es.strftime('%H:%M')}\n"
     desc += f"🇻🇪 **VENEZUELA:** {hora_inicio_ve.strftime('%H:%M')} - {hora_fin_ve.strftime('%H:%M')}\n"
     desc += f"🇨🇴 **COLOMBIA:** {hora_inicio_co.strftime('%H:%M')} - {hora_fin_co.strftime('%H:%M')}\n\n"
-    
+
     desc += "**Descripción:**\n🔥 VER TIK TOKS NO TE VA A AYUDAR A SUBIR DE NIVEL UNETE!! 🔥\n"
 
     for i in range(1, 5):
@@ -97,8 +97,8 @@ def crear_embed(now_utc, nombre_canal):
                 menciones.append(f"Usuario {user_id}")
 
         if not menciones: menciones = ["-"]
-        
-        canal_voz = i + 1 # 1=CH2, 2=CH3, 3=CH4, 4=CH5
+
+        canal_voz = i + 1
         desc += f"\n**{NOMBRES_TEAM[i]} ({nombre_canal}) - (ch{canal_voz}) ({len(inscritos[i])}/6)**\n" + "\n".join(menciones) + "\n"
 
     total = sum(len(v) for v in inscritos.values())
