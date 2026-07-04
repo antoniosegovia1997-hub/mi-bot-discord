@@ -20,13 +20,20 @@ client = discord.Client(intents=intents)
 mensajes_lol = {}
 inscritos = {1: [], 2: [], 3: [], 4: []}
 
+NOMBRES_TEAM = {
+    1: "TEAM RATAS",
+    2: "TEAM PRINCESOS",
+    3: "TEAM LESBIANO",
+    4: "TEAM NOSLEGENDS"
+}
+
 class BotonesLOL(View):
     def __init__(self):
         super().__init__(timeout=None)
-        self.add_item(Button(label="1", style=discord.ButtonStyle.primary, custom_id="grupo_1"))
-        self.add_item(Button(label="2", style=discord.ButtonStyle.primary, custom_id="grupo_2"))
-        self.add_item(Button(label="3", style=discord.ButtonStyle.primary, custom_id="grupo_3"))
-        self.add_item(Button(label="4", style=discord.ButtonStyle.primary, custom_id="grupo_4"))
+        self.add_item(Button(label="TEAM RATAS", style=discord.ButtonStyle.danger, custom_id="grupo_1"))
+        self.add_item(Button(label="TEAM PRINCESOS", style=discord.ButtonStyle.primary, custom_id="grupo_2"))
+        self.add_item(Button(label="TEAM LESBIANO", style=discord.ButtonStyle.success, custom_id="grupo_3"))
+        self.add_item(Button(label="TEAM NOSLEGENDS", style=discord.ButtonStyle.secondary, custom_id="grupo_4"))
 
 @tasks.loop(minutes=1)
 async def reloj_lol():
@@ -43,18 +50,24 @@ async def publicar_lol(now):
         if canal:
             embed = crear_embed(now, nombre_canal)
             if canal_id in mensajes_lol:
-                await mensajes_lol[canal_id].edit(content=f"@everyone **LOL {nombre_canal}**", embed=embed, view=BotonesLOL())
+                await mensajes_lol[canal_id].edit(content=f"@everyone **LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=BotonesLOL())
             else:
-                msg = await canal.send(f"@everyone **LOL {nombre_canal}**", embed=embed, view=BotonesLOL())
+                msg = await canal.send(f"@everyone **LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=BotonesLOL())
                 mensajes_lol[canal_id] = msg
 
 def crear_embed(now, nombre_canal):
-    hora_inicio = (now + datetime.timedelta(hours=1)).strftime("%H:%M")
-    hora_fin = (now + datetime.timedelta(hours=2)).strftime("%H:%M")
+    # CALCULO HORA AUTOMATICA
+    hora_actual_par = now.replace(minute=0, second=0, microsecond=0)
+    if hora_actual_par.hour % 2!= 0:
+        hora_actual_par = hora_actual_par + datetime.timedelta(hours=1)
+
+    hora_inicio = hora_actual_par + datetime.timedelta(hours=1)
+    hora_fin = hora_actual_par + datetime.timedelta(hours=2)
+
     fecha = now.strftime("%d/%m/%y")
 
-    desc = f"**Info del Evento:**\n📅 {fecha}\n🕒 {hora_inicio} - {hora_fin}\n\n"
-    desc += "**Descripción:**\n🇪🇸 Una vez que te unes a un equipo, no puedes cambiarte.\nSolo se permite cambiar de equipo si es necesario para equilibrar o completar ambos equipos.\n"
+    desc = f"**Info del Evento:**\n📅 {fecha}\n🕒 {hora_inicio.strftime('%H:%M')} - {hora_fin.strftime('%H:%M')}\n\n"
+    desc += "**Descripción:**\n🔥 VER TIK TOKS NO TE VA A AYUDAR A SUBIR DE NIVEL UNETE!! 🔥\n"
 
     for i in range(1, 5):
         menciones = []
@@ -64,13 +77,12 @@ def crear_embed(now, nombre_canal):
                 menciones.append(f"<@{user_id}>")
             else:
                 menciones.append(f"Usuario {user_id}")
-        
+
         if not menciones: menciones = ["-"]
-        canal_num = i + 1
-        desc += f"\n**Team {i} 60+ (channel {canal_num}) ({len(inscritos[i])}/6)**\n" + "\n".join(menciones) + "\n-"
+        desc += f"\n**{NOMBRES_TEAM[i]} ({nombre_canal}) - Canal Voz {i} ({len(inscritos[i])}/6)**\n" + "\n".join(menciones) + "\n"
 
     total = sum(len(v) for v in inscritos.values())
-    desc += f"\n\nInscritos: Total: {total} - Rol: 0 - Estado: 0"
+    desc += f"\n**Total Inscritos: {total}/24**"
 
     embed = discord.Embed(title=f"LOL {nombre_canal}", description=desc, color=0xff0000)
     return embed
@@ -88,8 +100,10 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.content == "!testlol":
-        await message.channel.send("Probando...")
+    if message.author.bot:
+        return
+    if message.content == "!lolnuevo":
+        await message.channel.send("✅ Publicando LOL en C30, C60 y C80...")
         await publicar_lol(datetime.datetime.now(TIMEZONE))
 
 @client.event
@@ -100,16 +114,16 @@ async def on_interaction(interaction: discord.Interaction):
 
         if user_id in inscritos[grupo]:
             inscritos[grupo].remove(user_id)
-            await interaction.response.send_message(f"Te saliste del Team {grupo}", ephemeral=True)
+            await interaction.response.send_message(f"Te saliste de {NOMBRES_TEAM[grupo]}", ephemeral=True)
         else:
             for g in inscritos:
                 if user_id in inscritos[g]:
                     inscritos[g].remove(user_id)
             if len(inscritos[grupo]) < 6:
                 inscritos[grupo].append(user_id)
-                await interaction.response.send_message(f"Te uniste al Team {grupo}", ephemeral=True)
+                await interaction.response.send_message(f"Te uniste a {NOMBRES_TEAM[grupo]}", ephemeral=True)
             else:
-                await interaction.response.send_message(f"Team {grupo} Lleno", ephemeral=True)
+                await interaction.response.send_message(f"{NOMBRES_TEAM[grupo]} Lleno", ephemeral=True)
 
         await actualizar_embed()
 
