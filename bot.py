@@ -23,7 +23,7 @@ def crear_embed(nombre_canal, hora_pub):
 
     total = 0
     for i, team in enumerate(TEAMS):
-        lista = inscritos[nombre_canal] # ARREGLADO AQUI
+        lista = inscritos[nombre_canal] # YA ESTA ARREGLADO
         total += len(lista)
         menciones = "\n".join([f"<@{u}>" for u in lista]) if lista else "-"
         embed.add_field(name=f"TEAM {team} ({nombre_canal}) - (ch{i+2}) ({len(lista)}/6)", value=menciones, inline=False)
@@ -44,21 +44,15 @@ class ViewBot(discord.ui.View):
         async def callback(interaction: discord.Interaction):
             user_id = interaction.user.id
             salio = False
-
-            # ARREGLADO: AHORA SI BORRA DE CADA TEAM
             for t in TEAMS:
                 if user_id in inscritos[self.canal]:
                     inscritos[self.canal].remove(user_id)
                     if t == team: salio = True
 
-            if not salio:
-                if len(inscritos[self.canal]) < 6:
-                    inscritos[self.canal].append(user_id)
-                else:
-                    await interaction.response.send_message(f"TEAM {team} LLENO", ephemeral=True)
-                    return
+            if not salio and len(inscritos[self.canal]) < 6:
+                inscritos[self.canal].append(user_id)
 
-            hora_msg = interaction.message.embeds[0].timestamp.replace(tzinfo=pytz.utc).astimezone(TZ_ESPANA) - datetime.timedelta(hours=1)
+            hora_msg = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
             await interaction.message.edit(embed=crear_embed(self.canal, hora_msg), view=ViewBot(self.canal))
             await interaction.response.send_message("Listo", ephemeral=True)
         return callback
@@ -73,7 +67,10 @@ async def publicar(nombre_canal, hora_forzada):
 async def on_ready():
     print('CONECTADO')
     now = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
-    for c in CANALES.keys(): await publicar(c, now)
+    
+    # FORZAR QUE PUBLIQUE EL DE LAS 18:00 AHORA MISMO
+    hora_18 = now.replace(hour=18) if now.hour >= 18 else now.replace(hour=16)
+    for c in CANALES.keys(): await publicar(c, hora_18)
     reloj.start()
 
 @tasks.loop(minutes=1)
