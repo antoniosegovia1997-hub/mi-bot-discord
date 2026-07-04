@@ -9,7 +9,7 @@ TOKEN = os.getenv("TOKEN")
 CANALES = {"C30": int(os.getenv("C30_CHANNEL_ID")), "C60": int(os.getenv("C60_CHANNEL_ID")), "C80": int(os.getenv("C80_CHANNEL_ID"))}
 TZ_ESPANA = pytz.timezone("Europe/Madrid"); TZ_VENEZUELA = pytz.timezone("America/Caracas"); TZ_COLOMBIA = pytz.timezone("America/Bogota")
 TEAMS = ["RATAS", "PRINCESOS", "LESBIANO", "NOSLEGENDS"]
-inscritos = {c: {team: [] for team in TEAMS} for c in CANALES.keys()}
+inscritos = {c: {team: [] for team in TEAMS} for c in CANALES.keys()} # ESTA ERA LA CLAVE
 
 def crear_embed(nombre_canal, hora_pub):
     h1 = hora_pub + datetime.timedelta(hours=1); h2 = h1 + datetime.timedelta(hours=1)
@@ -23,7 +23,7 @@ def crear_embed(nombre_canal, hora_pub):
 
     total = 0
     for i, team in enumerate(TEAMS):
-        lista = inscritos[nombre_canal]
+        lista = inscritos[nombre_canal] # AQUI ESTABA EL BUG
         total += len(lista)
         menciones = "\n".join([f"<@{u}>" for u in lista]) if lista else "-"
         embed.add_field(name=f"TEAM {team} ({nombre_canal}) - (ch{i+2}) ({len(lista)}/6)", value=menciones, inline=False)
@@ -43,24 +43,30 @@ class ViewBot(discord.ui.View):
     def make_callback(self, team):
         async def callback(interaction: discord.Interaction):
             user_id = interaction.user.id
-            ya_estaba = user_id in inscritos[self.canal]
-
+            
+            # TOGGLE: LO SACO DE TODOS LOS TEAMS
             for t in TEAMS:
-                if user_id in inscritos[self.canal]: inscritos[self.canal].remove(user_id)
-
-            if not ya_estaba and len(inscritos[self.canal]) < 6:
-                inscritos[self.canal].append(user_id)
+                if user_id in inscritos[self.canal]:
+                    inscritos[self.canal].remove(user_id)
+                    if t == team: # SI YA ESTABA = SALIÓ
+                        await interaction.response.send_message(f"Saliste de TEAM {team}", ephemeral=True)
+                        break
+            else: # SI NO ESTABA = ENTRA
+                if len(inscritos[self.canal]) < 6:
+                    inscritos[self.canal].append(user_id)
+                    await interaction.response.send_message(f"Entraste a TEAM {team}", ephemeral=True)
+                else:
+                    await interaction.response.send_message(f"TEAM {team} LLENO", ephemeral=True)
 
             hora_msg = interaction.message.embeds[0].timestamp.replace(tzinfo=pytz.utc).astimezone(TZ_ESPANA) - datetime.timedelta(hours=1)
             await interaction.message.edit(embed=crear_embed(self.canal, hora_msg), view=ViewBot(self.canal))
-            await interaction.response.send_message("Listo", ephemeral=True)
         return callback
 
 async def publicar(nombre_canal, hora_forzada):
     channel = client.get_channel(CANALES[nombre_canal])
-    inscritos[nombre_canal] = {team: [] for team in TEAMS}
+    inscritos[nombre_canal] = {team: [] for team in TEAMS} # RESET BIEN
     embed = crear_embed(nombre_canal, hora_forzada)
-    await channel.send(content=f"**LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=ViewBot(nombre_canal)) # SIN @EVERYONE
+    await channel.send(content=f"**LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=ViewBot(nombre_canal))
 
 @client.event
 async def on_ready():
