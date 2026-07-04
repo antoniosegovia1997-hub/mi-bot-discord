@@ -60,18 +60,18 @@ async def publicar_lol(now_utc):
         if canal:
             embed = crear_embed(now_utc, nombre_canal)
             if canal_id in mensajes_lol:
-                await mensajes_lol[canal_id].edit(content=f"@everyone **LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=BotonesLOL())
+                await mensajes_lol[canal_id].edit(content=f"**LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=BotonesLOL())
             else:
-                msg = await canal.send(f"@everyone **LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=BotonesLOL())
+                msg = await canal.send(f"**LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=BotonesLOL())
                 mensajes_lol[canal_id] = msg
 
 def crear_embed(now_utc, nombre_canal):
     # HORA ACTUAL EN ESPAÑA
     hora_actual_es = now_utc.astimezone(TZ_ESPANA)
     
-    # EL EVENTO ES 1 HORA DESPUES Y DURA 1 HORA SOLAMENTE
+    # EL EVENTO ES 1 HORA DESPUES Y DURA 1 HORA
     hora_inicio_es = hora_actual_es.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
-    hora_fin_es = hora_inicio_es + datetime.timedelta(hours=1) # <- CAMBIO AQUI: +1 hora
+    hora_fin_es = hora_inicio_es + datetime.timedelta(hours=1)
 
     # Convertir a otros países
     hora_inicio_ve = hora_inicio_es.astimezone(TZ_VENEZUELA)
@@ -114,12 +114,6 @@ async def on_ready():
     print(f'Bot conectado como {client.user}')
     reloj_lol.start()
     keep_alive.start()
-    
-    # FORZAR PUBLICACIÓN AHORA A LAS 12:42 PARA PROBAR
-    now_es = datetime.datetime.now(TZ_ESPANA)
-    if now_es.hour == 12 and 40 <= now_es.minute <= 42:
-        print("Forzando publicación a las 12:42")
-        await publicar_lol(datetime.datetime.now(datetime.timezone.utc))
 
 @client.event
 async def on_message(message):
