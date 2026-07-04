@@ -19,7 +19,7 @@ TZ_VENEZUELA = pytz.timezone("America/Caracas")
 TZ_COLOMBIA = pytz.timezone("America/Bogota")
 
 TEAMS = ["RATAS", "PRINCESOS", "LESBIANO", "NOSLEGENDS"]
-inscritos = {}
+inscritos = {} # { "C80": [(user_id, "RATAS"), (user_id, "PRINCESOS")] }
 
 def reset_canal(canal):
     inscritos[canal] = []
@@ -69,16 +69,29 @@ class ViewBot(discord.ui.View):
         async def callback(interaction: discord.Interaction):
             user_id = interaction.user.id
             lista = inscritos[self.canal]
-            lista = [u for u in lista if u[0]!= user_id]
-            team_count = len([u for u in lista if u[1] == team])
-            if team_count >= 6:
-                await interaction.response.send_message(f"TEAM {team} LLENO", ephemeral=True)
-                return
-            lista.append((user_id, team))
-            inscritos[self.canal] = lista
+            
+            # BUSCAR SI YA ESTA EN ESE TEAM
+            ya_esta = any(u[0] == user_id and u[1] == team for u in lista)
+
+            if ya_esta:
+                # DESAPUNTARSE
+                lista = [u for u in lista if not (u[0] == user_id and u[1] == team)]
+                inscritos[self.canal] = lista
+                msg = f"Te saliste de TEAM {team}"
+            else:
+                # APUNTARSE: primero borrar de otros teams
+                lista = [u for u in lista if u[0]!= user_id]
+                team_count = len([u for u in lista if u[1] == team])
+                if team_count >= 6:
+                    await interaction.response.send_message(f"TEAM {team} LLENO", ephemeral=True)
+                    return
+                lista.append((user_id, team))
+                inscritos[self.canal] = lista
+                msg = f"Te uniste a TEAM {team}"
+
             hora_msg = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
             await interaction.message.edit(embed=crear_embed(self.canal, hora_msg), view=ViewBot(self.canal))
-            await interaction.response.send_message(f"Te uniste a TEAM {team}", ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True)
         return callback
 
 async def publicar(nombre_canal, hora_pub):
@@ -91,6 +104,7 @@ async def publicar(nombre_canal, hora_pub):
 async def on_ready():
     print(f'CONECTADO COMO {client.user}')
     now = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
+    # Borra el anterior y publica nuevo YA
     for c in CANALES.keys():
         await publicar(c, now)
     reloj.start()
