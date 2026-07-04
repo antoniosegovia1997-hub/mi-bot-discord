@@ -19,13 +19,13 @@ TZ_VENEZUELA = pytz.timezone("America/Caracas")
 TZ_COLOMBIA = pytz.timezone("America/Bogota")
 
 TEAMS = ["RATAS", "PRINCESOS", "LESBIANO", "NOSLEGENDS"]
-inscritos = {} # { "C80": [(user_id, "RATAS"), (user_id, "PRINCESOS")] }
+inscritos = {}
 
 def reset_canal(canal):
     inscritos[canal] = []
 
 def crear_embed(nombre_canal, hora_pub):
-    h1 = hora_pub + datetime.timedelta(hours=1) # +1 HORA: 18:00 publica -> 19:00 evento
+    h1 = hora_pub + datetime.timedelta(hours=1) # CLAVE: +1 HORA
     h2 = h1 + datetime.timedelta(hours=1)
     fecha = h1.strftime("%d/%m/%y")
 
@@ -60,7 +60,6 @@ class ViewBot(discord.ui.View):
             elif team == "PRINCESOS": style = discord.ButtonStyle.primary
             elif team == "LESBIANO": style = discord.ButtonStyle.success
             else: style = discord.ButtonStyle.secondary
-
             btn = discord.ui.Button(label=f"TEAM {team}", style=style)
             btn.callback = self.make_callback(team)
             self.add_item(btn)
@@ -69,17 +68,12 @@ class ViewBot(discord.ui.View):
         async def callback(interaction: discord.Interaction):
             user_id = interaction.user.id
             lista = inscritos[self.canal]
-            
-            # BUSCAR SI YA ESTA EN ESE TEAM
             ya_esta = any(u[0] == user_id and u[1] == team for u in lista)
-
             if ya_esta:
-                # DESAPUNTARSE
                 lista = [u for u in lista if not (u[0] == user_id and u[1] == team)]
                 inscritos[self.canal] = lista
                 msg = f"Te saliste de TEAM {team}"
             else:
-                # APUNTARSE: primero borrar de otros teams
                 lista = [u for u in lista if u[0]!= user_id]
                 team_count = len([u for u in lista if u[1] == team])
                 if team_count >= 6:
@@ -88,7 +82,6 @@ class ViewBot(discord.ui.View):
                 lista.append((user_id, team))
                 inscritos[self.canal] = lista
                 msg = f"Te uniste a TEAM {team}"
-
             hora_msg = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
             await interaction.message.edit(embed=crear_embed(self.canal, hora_msg), view=ViewBot(self.canal))
             await interaction.response.send_message(msg, ephemeral=True)
@@ -101,19 +94,18 @@ async def publicar(nombre_canal, hora_pub):
     await channel.send(content=f"**LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=ViewBot(nombre_canal))
 
 @client.event
-async def on_ready():
+async 
+def on_ready():
     print(f'CONECTADO COMO {client.user}')
     now = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
-    # Borra el anterior y publica nuevo YA
     for c in CANALES.keys():
-        await publicar(c, now)
+        await publicar(c, now) # PUBLICA YA AL INICIAR: 18 -> 19:00
     reloj.start()
 
 @tasks.loop(minutes=1)
 async def reloj():
     now = datetime.datetime.now(TZ_ESPANA)
-    # Publica cada 2 horas: 00, 02, 04, 06, 08, 10, 12, 14, 16, 18, 20, 22
-    if now.minute == 0 and now.hour % 2 == 0:
+    if now.minute == 0 and now.hour % 2 == 0: # 00,02,04...18,20,22
         for c in CANALES.keys():
             await publicar(c, now)
 
