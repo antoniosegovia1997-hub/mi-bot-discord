@@ -24,37 +24,43 @@ mensaje_ids = {}
 
 def reset_inscritos(canal): inscritos[canal] = {team: [] for team in TEAMS}
 
-async def crear_embed(nombre_canal, hora_pub):
+def crear_mensaje(nombre_canal, hora_pub):
     h1 = hora_pub + datetime.timedelta(hours=1)
     h2 = h1 + datetime.timedelta(hours=1)
     fecha = h1.strftime("%d/%m/%y")
     h1_ve, h2_ve = h1.astimezone(TZ_VENEZUELA), h2.astimezone(TZ_VENEZUELA)
     h1_co, h2_co = h1.astimezone(TZ_COLOMBIA), h2.astimezone(TZ_COLOMBIA)
 
-    embed = discord.Embed(title=f"LOL {nombre_canal} - INSCRIPCIONES ABIERTAS", color=0xff0000)
-    embed.add_field(name="Info del Evento:", value=f"📅 {fecha}", inline=False)
-    embed.add_field(name="", value=f"🇪🇸 ESPAÑA: {h1.strftime('%H:%M')} - {h2.strftime('%H:%M')}\n🇻🇪 VENEZUELA: {h1_ve.strftime('%H:%M')} - {h2_ve.strftime('%H:%M')}\n🇨🇴 COLOMBIA: {h1_co.strftime('%H:%M')} - {h2_co.strftime('%H:%M')}", inline=False)
-    embed.add_field(name="Descripción:", value="🔥 VER TIK TOKS NO TE VA A AYUDAR A SUBIR DE NIVEL UNETE!! 🔥", inline=False)
+    msg = f"**LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**\n\n"
+    msg += f"**Info del Evento:**\n📅 {fecha}\n"
+    msg += f"🇪🇸 ESPAÑA: {h1.strftime('%H:%M')} - {h2.strftime('%H:%M')}\n"
+    msg += f"🇻🇪 VENEZUELA: {h1_ve.strftime('%H:%M')} - {h2_ve.strftime('%H:%M')}\n"
+    msg += f"🇨🇴 COLOMBIA: {h1_co.strftime('%H:%M')} - {h2_co.strftime('%H:%M')}\n\n"
+    msg += f"**Descripción:**\n🔥 VER TIK TOKS NO TE VA A AYUDAR A SUBIR DE NIVEL UNETE!! 🔥\n\n"
 
     total = 0
     for i, team in enumerate(TEAMS):
-        lista = inscritos[nombre_canal]
+        lista = inscritos[nombre_canal][team]
         total += len(lista)
-        texto = "\n".join([f"<@{u}>" for u in lista]) if lista else "-"
-        embed.add_field(name=f"TEAM {team} ({nombre_canal}) - (ch{i+2}) ({len(lista)}/6)", value=texto, inline=False)
-    embed.add_field(name=f"Total Inscritos: {total}/24", value="", inline=False)
+        menciones = "\n".join([f"<@{u}>" for u in lista]) if lista else "-"
+        msg += f"**TEAM {team} ({nombre_canal}) - (ch{i+2}) ({len(lista)}/6)**\n{menciones}\n\n"
 
-    view = discord.ui.View(timeout=None)
-    for team in TEAMS:
-        style = discord.ButtonStyle.red if team=="RATAS" else discord.ButtonStyle.blurple if team=="PRINCESOS" else discord.ButtonStyle.green if team=="LESBIANO" else discord.ButtonStyle.grey
-        view.add_item(discord.ui.Button(label=f"TEAM {team}", style=style, custom_id=f"{nombre_canal}_{team}"))
-    return embed, view
+    msg += f"**Total Inscritos: {total}/24**"
+    return msg
+
+class ViewBot(discord.ui.View):
+    def __init__(self, canal):
+        super().__init__(timeout=None)
+        for team in TEAMS:
+            style = discord.ButtonStyle.red if team=="RATAS" else discord.ButtonStyle.blurple if team=="PRINCESOS" else discord.ButtonStyle.green if team=="LESBIANO" else discord.ButtonStyle.grey
+            self.add_item(discord.ui.Button(label=f"TEAM {team}", style=style, custom_id=f"{canal}_{team}"))
 
 async def publicar(nombre_canal, hora_forzada):
     channel = client.get_channel(CANALES[nombre_canal])
     reset_inscritos(nombre_canal)
-    embed, view = await crear_embed(nombre_canal, hora_forzada)
-    msg = await channel.send(embed=embed, view=view) # <- QUITÉ EL @everyone
+    contenido = crear_mensaje(nombre_canal, hora_forzada)
+    view = ViewBot(nombre_canal)
+    msg = await channel.send(contenido, view=view)
     mensaje_ids[nombre_canal] = msg.id
 
 @client.event
@@ -77,9 +83,11 @@ async def on_interaction(interaction):
         user_id = interaction.user.id
         for t in TEAMS:
             if user_id in inscritos[canal][t]: inscritos[canal][t].remove(user_id)
-        if len(inscritos[canal]) < 6: inscritos[canal].append(user_id)
-        embed, view = await crear_embed(canal, interaction.message.created_at.astimezone(TZ_ESPANA) - datetime.timedelta(hours=1))
-        await interaction.message.edit(embed=embed, view=view)
-        await interaction.response.defer()
+        if len(inscritos[canal][team]) < 6: inscritos[canal][team].append(user_id)
+
+        hora_msg = interaction.message.created_at.astimezone(TZ_ESPANA) - datetime.timedelta(hours=1)
+        contenido = crear_mensaje(canal, hora_msg)
+        await interaction.message.edit(content=contenido, view=ViewBot(canal))
+        await interaction.response.send_message(f"Listo", ephemeral=True)
 
 client.run(TOKEN)
