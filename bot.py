@@ -23,7 +23,7 @@ def crear_embed(nombre_canal, hora_pub):
 
     total = 0
     for i, team in enumerate(TEAMS):
-        lista = inscritos[nombre_canal] # ARREGLADO
+        lista = inscritos[nombre_canal] # ARREGLO CLAVE
         total += len(lista)
         menciones = "\n".join([f"<@{u}>" for u in lista]) if lista else "-"
         embed.add_field(name=f"TEAM {team} ({nombre_canal}) - (ch{i+2}) ({len(lista)}/6)", value=menciones, inline=False)
@@ -45,14 +45,18 @@ class ViewBot(discord.ui.View):
             user_id = interaction.user.id
             salio = False
 
-            # ARREGLADO: AHORA SÍ RECORRE CADA TEAM
+            # ARREGLADO: AHORA SÍ TOCA CADA TEAM
             for t in TEAMS:
                 if user_id in inscritos[self.canal]:
                     inscritos[self.canal].remove(user_id)
                     if t == team: salio = True
 
-            if not salio and len(inscritos[self.canal]) < 6:
-                inscritos[self.canal].append(user_id)
+            if not salio:
+                if len(inscritos[self.canal]) < 6:
+                    inscritos[self.canal].append(user_id)
+                else:
+                    await interaction.response.send_message(f"TEAM {team} LLENO", ephemeral=True)
+                    return
 
             hora_msg = interaction.message.embeds[0].timestamp.replace(tzinfo=pytz.utc).astimezone(TZ_ESPANA) - datetime.timedelta(hours=1)
             await interaction.message.edit(embed=crear_embed(self.canal, hora_msg), view=ViewBot(self.canal))
