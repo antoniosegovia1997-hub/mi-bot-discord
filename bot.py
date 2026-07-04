@@ -97,7 +97,9 @@ def crear_embed(now_utc, nombre_canal):
                 menciones.append(f"Usuario {user_id}")
 
         if not menciones: menciones = ["-"]
-        desc += f"\n**{NOMBRES_TEAM[i]} ({nombre_canal}) - Canal Voz {i} ({len(inscritos[i])}/6)**\n" + "\n".join(menciones) + "\n"
+        
+        canal_voz = i + 1 # 1=CH2, 2=CH3, 3=CH4, 4=CH5
+        desc += f"\n**{NOMBRES_TEAM[i]} ({nombre_canal}) - (ch{canal_voz}) ({len(inscritos[i])}/6)**\n" + "\n".join(menciones) + "\n"
 
     total = sum(len(v) for v in inscritos.values())
     desc += f"\n**Total Inscritos: {total}/24**"
