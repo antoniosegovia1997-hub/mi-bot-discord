@@ -14,6 +14,7 @@ TIMEZONE = datetime.timezone(datetime.timedelta(hours=-5))
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 client = discord.Client(intents=intents)
 
 mensajes_lol = {}
@@ -30,7 +31,6 @@ class BotonesLOL(View):
 @tasks.loop(minutes=1)
 async def reloj_lol():
     now = datetime.datetime.now(TIMEZONE)
-    # CADA 2 HORAS EN PUNTO
     if now.minute == 0 and now.hour % 2 == 0:
         await publicar_lol(now)
 
@@ -53,16 +53,24 @@ def crear_embed(now, nombre_canal):
     hora_fin = (now + datetime.timedelta(hours=2)).strftime("%H:%M")
     fecha = now.strftime("%d/%m/%y")
 
-    desc = f"**Event Info:**\n📅 {fecha}\n🕒 {hora_inicio} - {hora_fin}\n\n"
-    desc += "**Description:**\nJoin team and wait for invite\n"
+    desc = f"**Info del Evento:**\n📅 {fecha}\n🕒 {hora_inicio} - {hora_fin}\n\n"
+    desc += "**Descripción:**\n🇪🇸 Una vez que te unes a un equipo, no puedes cambiarte.\nSolo se permite cambiar de equipo si es necesario para equilibrar o completar ambos equipos.\n"
 
     for i in range(1, 5):
-        menciones = [f"<@{m}>" for m in inscritos[i]]
+        menciones = []
+        for user_id in inscritos[i]:
+            user = client.get_user(user_id)
+            if user:
+                menciones.append(f"<@{user_id}>")
+            else:
+                menciones.append(f"Usuario {user_id}")
+        
         if not menciones: menciones = ["-"]
-        desc += f"\n**Team {i} 60+ (channel {i+1}) ({len(inscritos[i])}/6)**\n" + "\n".join(menciones) + "\n-"
+        canal_num = i + 1
+        desc += f"\n**Team {i} 60+ (channel {canal_num}) ({len(inscritos[i])}/6)**\n" + "\n".join(menciones) + "\n-"
 
     total = sum(len(v) for v in inscritos.values())
-    desc += f"\n\nSign ups: Total: {total} - Role: 0 - Status: 0"
+    desc += f"\n\nInscritos: Total: {total} - Rol: 0 - Estado: 0"
 
     embed = discord.Embed(title=f"LOL {nombre_canal}", description=desc, color=0xff0000)
     return embed
@@ -90,12 +98,10 @@ async def on_interaction(interaction: discord.Interaction):
         grupo = int(interaction.data["custom_id"].split("_")[1])
         user_id = interaction.user.id
 
-        # TOGGLE: Si ya esta, lo quita. Si no esta, lo mete
         if user_id in inscritos[grupo]:
             inscritos[grupo].remove(user_id)
             await interaction.response.send_message(f"Te saliste del Team {grupo}", ephemeral=True)
         else:
-            # primero lo quito de otros teams
             for g in inscritos:
                 if user_id in inscritos[g]:
                     inscritos[g].remove(user_id)
@@ -103,7 +109,7 @@ async def on_interaction(interaction: discord.Interaction):
                 inscritos[grupo].append(user_id)
                 await interaction.response.send_message(f"Te uniste al Team {grupo}", ephemeral=True)
             else:
-                await interaction.response.send_message(f"Team {grupo} Full", ephemeral=True)
+                await interaction.response.send_message(f"Team {grupo} Lleno", ephemeral=True)
 
         await actualizar_embed()
 
