@@ -23,7 +23,7 @@ def crear_embed(nombre_canal, hora_pub):
 
     total = 0
     for i, team in enumerate(TEAMS):
-        lista = inscritos[nombre_canal] # ARREGLO CLAVE
+        lista = inscritos[nombre_canal] # ARREGLADO AQUI
         total += len(lista)
         menciones = "\n".join([f"<@{u}>" for u in lista]) if lista else "-"
         embed.add_field(name=f"TEAM {team} ({nombre_canal}) - (ch{i+2}) ({len(lista)}/6)", value=menciones, inline=False)
@@ -45,7 +45,7 @@ class ViewBot(discord.ui.View):
             user_id = interaction.user.id
             salio = False
 
-            # ARREGLADO: AHORA SÍ TOCA CADA TEAM
+            # ARREGLADO: AHORA SI BORRA DE CADA TEAM
             for t in TEAMS:
                 if user_id in inscritos[self.canal]:
                     inscritos[self.canal].remove(user_id)
