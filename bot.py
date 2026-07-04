@@ -38,7 +38,7 @@ async def crear_embed(nombre_canal, hora_pub):
 
     total = 0
     for i, team in enumerate(TEAMS):
-        lista = inscritos[nombre_canal][team]
+        lista = inscritos[nombre_canal]
         total += len(lista)
         texto = "\n".join([f"<@{u}>" for u in lista]) if lista else "-"
         embed.add_field(name=f"TEAM {team} ({nombre_canal}) - (ch{i+2}) ({len(lista)}/6)", value=texto, inline=False)
@@ -54,13 +54,12 @@ async def publicar(nombre_canal, hora_forzada):
     channel = client.get_channel(CANALES[nombre_canal])
     reset_inscritos(nombre_canal)
     embed, view = await crear_embed(nombre_canal, hora_forzada)
-    msg = await channel.send(content="@everyone", embed=embed, view=view)
+    msg = await channel.send(embed=embed, view=view) # <- QUITÉ EL @everyone
     mensaje_ids[nombre_canal] = msg.id
 
 @client.event
 async def on_ready():
     print(f'CONECTADO')
-    # FORZAR EL DE 18:00 AHORA MISMO
     hora_18 = datetime.datetime.now(TZ_ESPANA).replace(hour=18, minute=0)
     for c in CANALES.keys(): await publicar(c, hora_18)
     reloj.start()
@@ -78,7 +77,7 @@ async def on_interaction(interaction):
         user_id = interaction.user.id
         for t in TEAMS:
             if user_id in inscritos[canal][t]: inscritos[canal][t].remove(user_id)
-        if len(inscritos[canal][team]) < 6: inscritos[canal][team].append(user_id)
+        if len(inscritos[canal]) < 6: inscritos[canal].append(user_id)
         embed, view = await crear_embed(canal, interaction.message.created_at.astimezone(TZ_ESPANA) - datetime.timedelta(hours=1))
         await interaction.message.edit(embed=embed, view=view)
         await interaction.response.defer()
