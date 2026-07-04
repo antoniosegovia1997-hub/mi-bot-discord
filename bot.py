@@ -69,9 +69,9 @@ def crear_embed(now_utc, nombre_canal):
     # HORA ACTUAL EN ESPAÑA
     hora_actual_es = now_utc.astimezone(TZ_ESPANA)
     
-    # EL EVENTO ES 1 HORA DESPUES Y DURA 2 HORAS
+    # EL EVENTO ES 1 HORA DESPUES Y DURA 1 HORA SOLAMENTE
     hora_inicio_es = hora_actual_es.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
-    hora_fin_es = hora_inicio_es + datetime.timedelta(hours=2)
+    hora_fin_es = hora_inicio_es + datetime.timedelta(hours=1) # <- CAMBIO AQUI: +1 hora
 
     # Convertir a otros países
     hora_inicio_ve = hora_inicio_es.astimezone(TZ_VENEZUELA)
@@ -115,10 +115,10 @@ async def on_ready():
     reloj_lol.start()
     keep_alive.start()
     
-    # FORZAR PUBLICACIÓN AHORA A LAS 12:38 PARA PROBAR
+    # FORZAR PUBLICACIÓN AHORA A LAS 12:42 PARA PROBAR
     now_es = datetime.datetime.now(TZ_ESPANA)
-    if now_es.hour == 12 and 35 <= now_es.minute <= 38:
-        print("Forzando publicación a las 12:38")
+    if now_es.hour == 12 and 40 <= now_es.minute <= 42:
+        print("Forzando publicación a las 12:42")
         await publicar_lol(datetime.datetime.now(datetime.timezone.utc))
 
 @client.event
