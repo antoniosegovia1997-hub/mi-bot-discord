@@ -10,7 +10,6 @@ CANALES_AVISO_ID = {
     1512527470111490148: "C60",
     1512527491850436690: "C80"
 }
-TIMEZONE = datetime.timezone(datetime.timedelta(hours=-5))
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -22,10 +21,15 @@ inscritos = {1: [], 2: [], 3: [], 4: []}
 
 NOMBRES_TEAM = {
     1: "TEAM RATAS",
-    2: "TEAM PRINCESOS",
+    2: "TEAM PRINCESOS", 
     3: "TEAM LESBIANO",
     4: "TEAM NOSLEGENDS"
 }
+
+# ZONAS HORARIAS
+TZ_ESPANA = datetime.timezone(datetime.timedelta(hours=2))
+TZ_VENEZUELA = datetime.timezone(datetime.timedelta(hours=-4))
+TZ_COLOMBIA = datetime.timezone(datetime.timedelta(hours=-5))
 
 class BotonesLOL(View):
     def __init__(self):
@@ -37,36 +41,50 @@ class BotonesLOL(View):
 
 @tasks.loop(minutes=1)
 async def reloj_lol():
-    now = datetime.datetime.now(TIMEZONE)
-    if now.minute == 0 and now.hour % 2 == 0:
-        await publicar_lol(now)
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    if now_utc.minute == 0 and now_utc.hour % 2 == 0:
+        await publicar_lol(now_utc)
 
-async def publicar_lol(now):
+async def publicar_lol(now_utc):
     global inscritos
     inscritos = {1: [], 2: [], 3: [], 4: []}
 
     for canal_id, nombre_canal in CANALES_AVISO_ID.items():
         canal = client.get_channel(canal_id)
         if canal:
-            embed = crear_embed(now, nombre_canal)
+            embed = crear_embed(now_utc, nombre_canal)
             if canal_id in mensajes_lol:
                 await mensajes_lol[canal_id].edit(content=f"@everyone **LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=BotonesLOL())
             else:
                 msg = await canal.send(f"@everyone **LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=BotonesLOL())
                 mensajes_lol[canal_id] = msg
 
-def crear_embed(now, nombre_canal):
-    # CALCULO HORA AUTOMATICA
-    hora_actual_par = now.replace(minute=0, second=0, microsecond=0)
+def crear_embed(now_utc, nombre_canal):
+    # CALCULO HORA AUTOMATICA EN UTC
+    hora_actual_par = now_utc.replace(minute=0, second=0, microsecond=0)
     if hora_actual_par.hour % 2!= 0:
         hora_actual_par = hora_actual_par + datetime.timedelta(hours=1)
 
-    hora_inicio = hora_actual_par + datetime.timedelta(hours=1)
-    hora_fin = hora_actual_par + datetime.timedelta(hours=2)
+    hora_inicio_utc = hora_actual_par + datetime.timedelta(hours=1)
+    hora_fin_utc = hora_actual_par + datetime.timedelta(hours=2)
 
-    fecha = now.strftime("%d/%m/%y")
+    # CONVERTIR A CADA PAIS
+    hora_inicio_es = hora_inicio_utc.astimezone(TZ_ESPANA)
+    hora_fin_es = hora_fin_utc.astimezone(TZ_ESPANA)
+    
+    hora_inicio_ve = hora_inicio_utc.astimezone(TZ_VENEZUELA)
+    hora_fin_ve = hora_fin_utc.astimezone(TZ_VENEZUELA)
 
-    desc = f"**Info del Evento:**\n📅 {fecha}\n🕒 {hora_inicio.strftime('%H:%M')} - {hora_fin.strftime('%H:%M')}\n\n"
+    hora_inicio_co = hora_inicio_utc.astimezone(TZ_COLOMBIA)
+    hora_fin_co = hora_fin_utc.astimezone(TZ_COLOMBIA)
+
+    fecha = hora_inicio_utc.strftime("%d/%m/%y")
+
+    desc = f"**Info del Evento:**\n📅 {fecha}\n\n"
+    desc += f"🇪🇸 **ESPAÑA:** {hora_inicio_es.strftime('%H:%M')} - {hora_fin_es.strftime('%H:%M')}\n"
+    desc += f"🇻🇪 **VENEZUELA:** {hora_inicio_ve.strftime('%H:%M')} - {hora_fin_ve.strftime('%H:%M')}\n"
+    desc += f"🇨🇴 **COLOMBIA:** {hora_inicio_co.strftime('%H:%M')} - {hora_fin_co.strftime('%H:%M')}\n\n"
+    
     desc += "**Descripción:**\n🔥 VER TIK TOKS NO TE VA A AYUDAR A SUBIR DE NIVEL UNETE!! 🔥\n"
 
     for i in range(1, 5):
@@ -88,9 +106,10 @@ def crear_embed(now, nombre_canal):
     return embed
 
 async def actualizar_embed():
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
     for canal_id, nombre_canal in CANALES_AVISO_ID.items():
         if canal_id in mensajes_lol:
-            embed = crear_embed(datetime.datetime.now(TIMEZONE), nombre_canal)
+            embed = crear_embed(now_utc, nombre_canal)
             await mensajes_lol[canal_id].edit(embed=embed)
 
 @client.event
@@ -104,7 +123,7 @@ async def on_message(message):
         return
     if message.content == "!lolnuevo":
         await message.channel.send("✅ Publicando LOL en C30, C60 y C80...")
-        await publicar_lol(datetime.datetime.now(TIMEZONE))
+        await publicar_lol(datetime.datetime.now(datetime.timezone.utc))
 
 @client.event
 async def on_interaction(interaction: discord.Interaction):
