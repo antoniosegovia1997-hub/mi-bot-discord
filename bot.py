@@ -25,7 +25,7 @@ def reset_canal(canal):
     inscritos[canal] = []
 
 def crear_embed(nombre_canal, hora_pub):
-    h1 = hora_pub + datetime.timedelta(hours=1) # +1 HORA: 18:00 publica -> 19:00 evento
+    h1 = hora_pub + datetime.timedelta(hours=2) # CLAVE: +2 HORAS
     h2 = h1 + datetime.timedelta(hours=1)
     fecha = h1.strftime("%d/%m/%y")
 
@@ -94,17 +94,17 @@ async def publicar(nombre_canal, hora_pub):
     await channel.send(content=f"**LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=ViewBot(nombre_canal))
 
 @client.event
-async def on_ready(): # AQUI ESTABA EL ERROR, YA LO ARREGLÉ
+async def on_ready():
     print(f'CONECTADO COMO {client.user}')
     now = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
     for c in CANALES.keys():
-        await publicar(c, now) # PUBLICA YA: 18 -> 19:00
+        await publicar(c, now) # PUBLICA YA AL INICIAR
     reloj.start()
 
 @tasks.loop(minutes=1)
 async def reloj():
     now = datetime.datetime.now(TZ_ESPANA)
-    if now.minute == 0 and now.hour % 2 == 0: # 00,02,04...18,20,22
+    if now.minute == 0 and now.hour % 2 == 0: # PUBLICA EN PARES: 00,02,04...18,20,22
         for c in CANALES.keys():
             await publicar(c, now)
 
