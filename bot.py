@@ -66,23 +66,24 @@ async def publicar_lol(now_utc):
                 mensajes_lol[canal_id] = msg
 
 def crear_embed(now_utc, nombre_canal):
-    # LA HORA DEL EVENTO ES LA HORA ACTUAL
-    hora_evento_es = now_utc.astimezone(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
+    # HORA ACTUAL EN ESPAÑA
+    hora_actual_es = now_utc.astimezone(TZ_ESPANA)
     
-    # El evento dura 2 horas
-    hora_fin_es = hora_evento_es + datetime.timedelta(hours=2)
+    # EL EVENTO ES 1 HORA DESPUES Y DURA 2 HORAS
+    hora_inicio_es = hora_actual_es.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
+    hora_fin_es = hora_inicio_es + datetime.timedelta(hours=2)
 
     # Convertir a otros países
-    hora_inicio_ve = hora_evento_es.astimezone(TZ_VENEZUELA)
+    hora_inicio_ve = hora_inicio_es.astimezone(TZ_VENEZUELA)
     hora_fin_ve = hora_fin_es.astimezone(TZ_VENEZUELA)
 
-    hora_inicio_co = hora_evento_es.astimezone(TZ_COLOMBIA)
+    hora_inicio_co = hora_inicio_es.astimezone(TZ_COLOMBIA)
     hora_fin_co = hora_fin_es.astimezone(TZ_COLOMBIA)
 
-    fecha = hora_evento_es.strftime("%d/%m/%y")
+    fecha = hora_inicio_es.strftime("%d/%m/%y")
 
     desc = f"**Info del Evento:**\n📅 {fecha}\n\n"
-    desc += f"🇪🇸 **ESPAÑA:** {hora_evento_es.strftime('%H:%M')} - {hora_fin_es.strftime('%H:%M')}\n"
+    desc += f"🇪🇸 **ESPAÑA:** {hora_inicio_es.strftime('%H:%M')} - {hora_fin_es.strftime('%H:%M')}\n"
     desc += f"🇻🇪 **VENEZUELA:** {hora_inicio_ve.strftime('%H:%M')} - {hora_fin_ve.strftime('%H:%M')}\n"
     desc += f"🇨🇴 **COLOMBIA:** {hora_inicio_co.strftime('%H:%M')} - {hora_fin_co.strftime('%H:%M')}\n\n"
     
@@ -113,10 +114,11 @@ async def on_ready():
     print(f'Bot conectado como {client.user}')
     reloj_lol.start()
     keep_alive.start()
-    # FORZAR PUBLICACIÓN AHORA A LAS 12:36 PARA PROBAR
+    
+    # FORZAR PUBLICACIÓN AHORA A LAS 12:38 PARA PROBAR
     now_es = datetime.datetime.now(TZ_ESPANA)
-    if now_es.hour == 12 and now_es.minute < 40:
-        print("Forzando publicación a las 12:36")
+    if now_es.hour == 12 and 35 <= now_es.minute <= 38:
+        print("Forzando publicación a las 12:38")
         await publicar_lol(datetime.datetime.now(datetime.timezone.utc))
 
 @client.event
