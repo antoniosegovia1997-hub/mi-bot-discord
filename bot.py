@@ -25,7 +25,7 @@ def reset_canal(canal):
     inscritos[canal] = []
 
 def crear_embed(nombre_canal, hora_pub):
-    h1 = hora_pub + datetime.timedelta(hours=3) # +3H IGUAL QUE TU FOTO
+    h1 = hora_pub + datetime.timedelta(hours=1) # +1 HORA: 18:00 publica -> 19:00 evento
     h2 = h1 + datetime.timedelta(hours=1)
     fecha = h1.strftime("%d/%m/%y")
 
@@ -69,19 +69,13 @@ class ViewBot(discord.ui.View):
         async def callback(interaction: discord.Interaction):
             user_id = interaction.user.id
             lista = inscritos[self.canal]
-
-            # Quitar de todos los teams
             lista = [u for u in lista if u[0]!= user_id]
-
-            # Ver si el team está lleno
             team_count = len([u for u in lista if u[1] == team])
             if team_count >= 6:
                 await interaction.response.send_message(f"TEAM {team} LLENO", ephemeral=True)
                 return
-
             lista.append((user_id, team))
             inscritos[self.canal] = lista
-
             hora_msg = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
             await interaction.message.edit(embed=crear_embed(self.canal, hora_msg), view=ViewBot(self.canal))
             await interaction.response.send_message(f"Te uniste a TEAM {team}", ephemeral=True)
@@ -97,7 +91,6 @@ async def publicar(nombre_canal, hora_pub):
 async def on_ready():
     print(f'CONECTADO COMO {client.user}')
     now = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
-    # Publicar los 3 canales al iniciar
     for c in CANALES.keys():
         await publicar(c, now)
     reloj.start()
@@ -105,7 +98,8 @@ async def on_ready():
 @tasks.loop(minutes=1)
 async def reloj():
     now = datetime.datetime.now(TZ_ESPANA)
-    if now.minute == 0 and now.hour % 2 == 0: # 18:00, 20:00, 22:00...
+    # Publica cada 2 horas: 00, 02, 04, 06, 08, 10, 12, 14, 16, 18, 20, 22
+    if now.minute == 0 and now.hour % 2 == 0:
         for c in CANALES.keys():
             await publicar(c, now)
 
