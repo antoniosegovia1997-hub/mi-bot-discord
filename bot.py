@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands, tasks
-import datetime, os, pytz, asyncio
+import datetime, os, pytz
 
 intents = discord.Intents.default(); intents.message_content = True; intents.members = True
 client = commands.Bot(command_prefix="!", intents=intents)
@@ -10,82 +10,69 @@ CANALES = {"C30": int(os.getenv("C30_CHANNEL_ID")), "C60": int(os.getenv("C60_CH
 TZ_ESPANA = pytz.timezone("Europe/Madrid"); TZ_VENEZUELA = pytz.timezone("America/Caracas"); TZ_COLOMBIA = pytz.timezone("America/Bogota")
 TEAMS = ["RATAS", "PRINCESOS", "LESBIANO", "NOSLEGENDS"]
 inscritos = {c: {team: [] for team in TEAMS} for c in CANALES.keys()}
-ultimo_mensaje_id = {c: None for c in CANALES.keys()} # PARA BORRAR EL ANTERIOR
 
-def crear_mensaje(nombre_canal, hora_pub):
+def crear_embed(nombre_canal, hora_pub):
     h1 = hora_pub + datetime.timedelta(hours=1); h2 = h1 + datetime.timedelta(hours=1)
     fecha = h1.strftime("%d/%m/%y")
-    h1_ve, h2_ve = h1.astimezone(TZ_VENEZUELA), h2.astimezone(TZ_VENEZUELA)
-    h1_co, h2_co = h1.astimezone(TZ_COLOMBIA), h2.astimezone(TZ_COLOMBIA)
-    
-    # ORDEN IGUAL A TU FOTO: TITULO > INFO > DESCRIPCION > TEAMS
-    msg = f"**LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**\n\n"
-    msg += f"**Info del Evento:**\n📅 {fecha}\n"
-    msg += f"🇪🇸 ESPAÑA: {h1.strftime('%H:%M')} - {h2.strftime('%H:%M')}\n"
-    msg += f"🇻🇪 VENEZUELA: {h1_ve.strftime('%H:%M')} - {h2_ve.strftime('%H:%M')}\n"
-    msg += f"🇨🇴 COLOMBIA: {h1_co.strftime('%H:%M')} - {h2_co.strftime('%H:%M')}\n\n"
-    msg += f"**Descripción:**\n🔥 VER TIK TOKS NO TE VA A AYUDAR A SUBIR DE NIVEL UNETE!! 🔥\n\n"
-    
+    h1_ve = h1.astimezone(TZ_VENEZUELA); h2_ve = h2.astimezone(TZ_VENEZUELA)
+    h1_co = h1.astimezone(TZ_COLOMBIA); h2_co = h2.astimezone(TZ_COLOMBIA)
+
+    embed = discord.Embed(title=f"LOL {nombre_canal}", color=0xE74C3C)
+    embed.add_field(name="Info del Evento:", value=f"📅 {fecha}\n🇪🇸 ESPAÑA: {h1.strftime('%H:%M')} - {h2.strftime('%H:%M')}\n🇻🇪 VENEZUELA: {h1_ve.strftime('%H:%M')} - {h2_ve.strftime('%H:%M')}\n🇨🇴 COLOMBIA: {h1_co.strftime('%H:%M')} - {h2_co.strftime('%H:%M')}", inline=False)
+    embed.add_field(name="Descripción:", value="🔥 VER TIK TOKS NO TE VA A AYUDAR A SUBIR DE NIVEL UNETE!! 🔥", inline=False)
+
     total = 0
     for i, team in enumerate(TEAMS):
-        lista = inscritos[nombre_canal]; total += len(lista)
+        lista = inscritos[nombre_canal]
+        total += len(lista)
         menciones = "\n".join([f"<@{u}>" for u in lista]) if lista else "-"
-        msg += f"**TEAM {team} ({nombre_canal}) - (ch{i+2}) ({len(lista)}/6)**\n{menciones}\n\n"
-    msg += f"**Total Inscritos: {total}/24**"
-    return msg
+        embed.add_field(name=f"TEAM {team} ({nombre_canal}) - (ch{i+2}) ({len(lista)}/6)", value=menciones, inline=False)
+
+    embed.set_footer(text=f"Total Inscritos: {total}/24")
+    return embed
 
 class ViewBot(discord.ui.View):
     def __init__(self, canal):
         super().__init__(timeout=None); self.canal = canal
         for team in TEAMS:
-            style = discord.ButtonStyle.red if team=="RATAS" else discord.ButtonStyle.blurple if team=="PRINCESOS" else discord.ButtonStyle.green if team=="LESBIANO" else discord.ButtonStyle.grey
-            self.add_item(ButtonTeam(team, style, canal))
+            style = discord.ButtonStyle.danger if team=="RATAS" else discord.ButtonStyle.primary if team=="PRINCESOS" else discord.ButtonStyle.success if team=="LESBIANO" else discord.ButtonStyle.secondary
+            btn = discord.ui.Button(label=f"TEAM {team}", style=style)
+            btn.callback = self.make_callback(team)
+            self.add_item(btn)
 
-class ButtonTeam(discord.ui.Button):
-    def __init__(self, team, style, canal):
-        super().__init__(label=f"TEAM {team}", style=style, custom_id=f"{canal}_{team}")
-        self.team = team; self.canal = canal
+    def make_callback(self, team):
+        async def callback(interaction: discord.Interaction):
+            user_id = interaction.user.id
+            ya_estaba = user_id in inscritos[self.canal]
 
-    async def callback(self, interaction: discord.Interaction):
-        user_id = interaction.user.id
-        ya_estaba = user_id in inscritos[self.canal][self.team]
-        
-        # TOGGLE: SI YA ESTABA LO SACO, SI NO LO METO
-        for t in TEAMS:
-            if user_id in inscritos[self.canal][t]: inscritos[self.canal][t].remove(user_id)
-        
-        if not ya_estaba and len(inscritos[self.canal][self.team]) < 6:
-            inscritos[self.canal][self.team].append(user_id)
-            await interaction.response.send_message(f"Te uniste a TEAM {self.team}", ephemeral=True)
-        elif ya_estaba:
-            await interaction.response.send_message(f"Te saliste de TEAM {self.team}", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"TEAM {self.team} LLENO", ephemeral=True)
+            for t in TEAMS:
+                if user_id in inscritos[self.canal]: inscritos[self.canal].remove(user_id)
 
-        hora_msg = interaction.message.created_at.astimezone(TZ_ESPANA) - datetime.timedelta(hours=1)
-        await interaction.message.edit(content=crear_mensaje(self.canal, hora_msg), view=ViewBot(self.canal))
+            if not ya_estaba and len(inscritos[self.canal]) < 6:
+                inscritos[self.canal].append(user_id)
+
+            hora_msg = interaction.message.embeds[0].timestamp.replace(tzinfo=pytz.utc).astimezone(TZ_ESPANA) - datetime.timedelta(hours=1)
+            await interaction.message.edit(embed=crear_embed(self.canal, hora_msg), view=ViewBot(self.canal))
+            await interaction.response.send_message("Listo", ephemeral=True)
+        return callback
 
 async def publicar(nombre_canal, hora_forzada):
     channel = client.get_channel(CANALES[nombre_canal])
-    # BORRAR EL MENSAJE ANTERIOR PARA QUE NO SE DUPLIQUE
-    if ultimo_mensaje_id[nombre_canal]:
-        try: msg_viejo = await channel.fetch_message(ultimo_mensaje_id[nombre_canal]); await msg_viejo.delete()
-        except: pass
-    
     inscritos[nombre_canal] = {team: [] for team in TEAMS}
-    msg_nuevo = await channel.send(crear_mensaje(nombre_canal, hora_forzada), view=ViewBot(nombre_canal))
-    ultimo_mensaje_id[nombre_canal] = msg_nuevo.id
+    embed = crear_embed(nombre_canal, hora_forzada)
+    await channel.send(content=f"**LOL {nombre_canal} - INSCRIPCIONES ABIERTAS**", embed=embed, view=ViewBot(nombre_canal)) # SIN @EVERYONE
 
 @client.event
 async def on_ready():
-    print('CONECTADO'); now = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0)
-    for c in CANALES.keys(): await publicar(c, now); await asyncio.sleep(2)
+    print('CONECTADO')
+    now = datetime.datetime.now(TZ_ESPANA).replace(minute=0, second=0, microsecond=0)
+    for c in CANALES.keys(): await publicar(c, now)
     reloj.start()
 
 @tasks.loop(minutes=1)
 async def reloj():
     now = datetime.datetime.now(TZ_ESPANA)
     if now.minute == 0 and now.hour % 2 == 0:
-        for c in CANALES.keys(): await publicar(c, now); await asyncio.sleep(2)
+        for c in CANALES.keys(): await publicar(c, now)
 
-client.run(TOKEN, reconnect=True)
+client.run(TOKEN)
